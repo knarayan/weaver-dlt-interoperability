@@ -19,8 +19,31 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func ifEqualSets(a, b []string) bool {
+    if len(a) != len(b) {
+        return false
+    }
+
+    astring := strings.Join(a, ",")
+    bstring := strings.Join(b, ",")
+    for i := range a {
+        // ensure that each element of a is also an element of b
+        if !strings.Contains(bstring, a[i]) {
+            return false
+        }
+    }
+
+    for i := range a {
+        // ensure that each element of b is also an element of a
+        if !strings.Contains(astring, b[i]) {
+            return false
+        }
+    }
+    return true
+}
+
 // asset specific checks (ideally an asset in a different application might implement checks specific to that asset)
-func (s *SmartContract) BondAssetSpecificChecks(ctx contractapi.TransactionContextInterface, assetType, id string, lockInfoSerializedProto64 string) error {
+func (s *SmartContract) BondAssetSpecificChecks(ctx contractapi.TransactionContextInterface, assetType, id, locker string, lockInfoSerializedProto64 string) error {
 
 	lockInfo := &common.AssetLock{}
 	// Decoding from base64
@@ -49,6 +72,10 @@ func (s *SmartContract) BondAssetSpecificChecks(ctx contractapi.TransactionConte
 	log.Infof("bond: %+v", *bond)
 	log.Infof("lockInfoHTLC: %+v", *lockInfoHTLC)
 
+	if !ifEqualSets(bond.CoOwners, strings.Split(locker, ",")) {
+		return logThenErrorf("cannot lock shared bond asset as the assetAgreement.Locker doesn't include all the coOwners of the asset")
+	}
+
 	// Check if asset doesn't mature before locking period
 	if uint64(bond.MaturityDate.Unix()) < lockInfoHTLC.ExpiryTimeSecs {
 		return logThenErrorf("cannot lock bond asset as it will mature before locking period")
@@ -65,7 +92,7 @@ func (s *SmartContract) LockSharedAsset(ctx contractapi.TransactionContextInterf
 	if err != nil {
 		return "", err
 	}
-	err = s.BondAssetSpecificChecks(ctx, assetAgreement.Type, assetAgreement.Id, lockInfoSerializedProto64)
+	err = s.BondAssetSpecificChecks(ctx, assetAgreement.Type, assetAgreement.Id, assetAgreement.Locker, lockInfoSerializedProto64)
 	if err != nil {
 		return "", logThenErrorf(err.Error())
 	}

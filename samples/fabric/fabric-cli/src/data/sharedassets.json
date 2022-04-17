@@ -1,0 +1,20 @@
+{
+  "a05": {
+    "assetType": "bond01",
+    "id": "a05",
+    "owner": "alice",
+    "coOwners": "alice,bob",
+    "issuer": "treasury",
+    "facevalue": "500",
+    "maturitydate": "01 Jan 45 00:00 MST"
+  },
+  "a06": {
+    "assetType": "bond01",
+    "id": "a06",
+    "owner": "bob",
+    "coOwners": "bob",
+    "issuer": "treasury",
+    "facevalue": "700",
+    "maturitydate": "01 Jul 45 00:00 MST"
+  }
+}
