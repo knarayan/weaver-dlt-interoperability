@@ -105,17 +105,6 @@ fun main(args: Array<String>) = App()
                 TransferBondAssetStateCommand(),
                 DeleteBondAssetStateCommand()
             ),
-            SharedAssetCommand().subcommands(
-                IssueSharedAssetStateCommand(),
-                IssueSharedAssetStateFromStateRefCommand(),
-                GetSharedAssetStateByLinearIdCommand(),
-                GetSharedAssetStatesByTypeCommand(),
-                RetrieveSharedAssetStateAndRefCommand(),
-                TransferSharedAssetStateCommand(),
-                DeleteSharedAssetStateCommand(),
-                MergeSharedAssetStatesCommand(),
-                SplitSharedAssetStateCommand()
-            ),
             AssetTransferCommand().subcommands(
                 PledgeAssetCommand(),
                 IsAssetPledgedCommand(),
