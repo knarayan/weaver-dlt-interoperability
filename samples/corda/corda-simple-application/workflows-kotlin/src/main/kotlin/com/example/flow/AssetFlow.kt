@@ -250,19 +250,6 @@ class GetAssetStateByLinearId(val linearId: String) : FlowLogic<String>() {
     }
 }
 
-fun getAssetStateAndRefWithLinearId(linearId: String, serviceHub: ServiceHub) : StateAndRef<AssetState> {
-    var uuid: UniqueIdentifier = UniqueIdentifier.Companion.fromString(linearId)
-    var criteria: QueryCriteria.LinearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(null, Arrays.asList(uuid),
-        Vault.StateStatus.UNCONSUMED, null)
-    var assetStates: List<StateAndRef<AssetState>> = serviceHub.vaultService.queryBy<AssetState>(criteria).states
-    if (assetStates.isEmpty()) {
-        println("AssetState with linearId $linearId not found")
-        throw NotFoundException("AssetState with linearId $linearId not found")
-    }
-
-    return assetStates.first()
-}
-
 @StartableByRPC
 class IssueAssetStateFromStateRef(val linearId: String) : FlowLogic<SignedTransaction>() {
     /**
@@ -300,7 +287,11 @@ class IssueAssetStateFromStateRef(val linearId: String) : FlowLogic<SignedTransa
         progressTracker.currentStep = GENERATING_TRANSACTION
         // Generate an unsigned transaction.
 
-        val pointedToState: StateAndRef<AssetState> = getAssetStateAndRefWithLinearId(linearId, serviceHub)
+        val uuid: UniqueIdentifier = UniqueIdentifier.Companion.fromString(linearId)
+        val criteria: QueryCriteria.LinearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(null, Arrays.asList(uuid),
+            Vault.StateStatus.UNCONSUMED, null)
+        val assetStates: List<StateAndRef<AssetState>> = serviceHub.vaultService.queryBy<AssetState>(criteria).states
+        val pointedToState: StateAndRef<AssetState> = assetStates.first()
         println("Retrieved asset state with linearId $linearId: $pointedToState\n")
 
         val stateStaticPointer: StaticPointer<AssetState> = StaticPointer(pointedToState.ref, pointedToState.state.data.javaClass)
@@ -370,8 +361,23 @@ class MergeAssetStates(val linearId1: String, val linearId2: String) : FlowLogic
         progressTracker.currentStep = GENERATING_TRANSACTION
         // Generate an unsigned transaction.
 
-        val assetState1: StateAndRef<AssetState> = getAssetStateAndRefWithLinearId(linearId1, serviceHub)
-        val assetState2: StateAndRef<AssetState> = getAssetStateAndRefWithLinearId(linearId2, serviceHub)
+        var uuid = UniqueIdentifier.Companion.fromString(linearId1)
+        var criteria = QueryCriteria.LinearStateQueryCriteria(null, Arrays.asList(uuid),
+            Vault.StateStatus.UNCONSUMED, null)
+        var assetStatesWithLinearId = serviceHub.vaultService.queryBy<AssetState>(criteria).states
+        if (assetStatesWithLinearId.isEmpty()) {
+            throw NotFoundException("AssetState with linearId $linearId1 not found")
+        }
+        val assetState1 = assetStatesWithLinearId.first()
+
+        uuid = UniqueIdentifier.Companion.fromString(linearId2)
+        criteria = QueryCriteria.LinearStateQueryCriteria(null, Arrays.asList(uuid),
+            Vault.StateStatus.UNCONSUMED, null)
+        assetStatesWithLinearId = serviceHub.vaultService.queryBy<AssetState>(criteria).states
+        if (assetStatesWithLinearId.isEmpty()) {
+            throw NotFoundException("AssetState with linearId $linearId2 not found")
+        }
+        val assetState2 = assetStatesWithLinearId.first()
 
         println("Merging asset states from the ledger: ${assetState1.state.data} and ${assetState2.state.data}\n")
 
@@ -473,7 +479,14 @@ class SplitAssetState(val linearId: String, val quantity1: Long, val quantity2: 
         progressTracker.currentStep = GENERATING_TRANSACTION
         // Generate an unsigned transaction.
 
-        val splitState: StateAndRef<AssetState> = getAssetStateAndRefWithLinearId(linearId, serviceHub)
+        val uuid = UniqueIdentifier.Companion.fromString(linearId)
+        val criteria = QueryCriteria.LinearStateQueryCriteria(null, Arrays.asList(uuid),
+            Vault.StateStatus.UNCONSUMED, null)
+        val assetStatesWithLinearId = serviceHub.vaultService.queryBy<AssetState>(criteria).states
+        if (assetStatesWithLinearId.isEmpty()) {
+            throw NotFoundException("AssetState with linearId $linearId not found")
+        }
+        val splitState = assetStatesWithLinearId.first()
 
         println("Split asset state from the ledger: $splitState.state.data\n")
 
@@ -761,7 +774,7 @@ class GetSimpleAssetStateAndContractId(
  * The marshalFungibleAsset function is used to obtain the JSON encoding of the fungible asset of interest to the user.
  * This function is typically called by the application client which may not know the full details of the asset.
  *
- * @property type The fungible asset type.
+ * @property type type The fungible asset type.
  * @property quantity The number of units of the fungible asset.
  * @property onwerCert The certificate of the owner of asset in base64 form
  */
