@@ -315,10 +315,10 @@ func (amc *AssetManagementContract) LockAsset(ctx contractapi.TransactionContext
                 contractInfoBytes, err = proto.Marshal(contractInfo)
             }
         } else if lockInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-            lockInfoVal := &common.AssetLockECDLPTLC{}
+            lockInfoVal := &common.AssetLockHTLC{}
             err = proto.Unmarshal(lockInfo.LockInfo, lockInfoVal)
             if err == nil {
-                contractInfo := &common.AssetContractECDLPTLC {
+                contractInfo := &common.AssetContractHTLC {
                     ContractId: contractId,
                     Agreement: assetAgreement,
                     Lock: lockInfoVal,
@@ -364,10 +364,10 @@ func (amc *AssetManagementContract) LockFungibleAsset(ctx contractapi.Transactio
                 contractInfoBytes, err = proto.Marshal(contractInfo)
             }
         } else if lockInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-            lockInfoVal := &common.AssetLockECDLPTLC{}
+            lockInfoVal := &common.AssetLockHTLC{}
             err = proto.Unmarshal(lockInfo.LockInfo, lockInfoVal)
             if err == nil {
-                contractInfo := &common.FungibleAssetContractECDLPTLC {
+                contractInfo := &common.FungibleAssetContractHTLC {
                     ContractId: contractId,
                     Agreement: assetAgreement,
                     Lock: lockInfoVal,
@@ -435,10 +435,10 @@ func (amc *AssetManagementContract) ClaimAsset(ctx contractapi.TransactionContex
                 contractInfoBytes, err = proto.Marshal(contractInfo)
             }
         } else if claimInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-            claimInfoVal := &common.AssetClaimECDLPTLC{}
+            claimInfoVal := &common.AssetClaimHTLC{}
             err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoVal)
             if err == nil {
-                contractInfo := &common.AssetContractECDLPTLC {
+                contractInfo := &common.AssetContractHTLC {
                     Agreement: assetAgreement,
                     Claim: claimInfoVal,
                 }
@@ -480,10 +480,10 @@ func (amc *AssetManagementContract) ClaimFungibleAsset(ctx contractapi.Transacti
                 contractInfoBytes, err = proto.Marshal(contractInfo)
             }
         } else if claimInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-            claimInfoVal := &common.AssetClaimECDLPTLC{}
+            claimInfoVal := &common.AssetClaimHTLC{}
             err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoVal)
             if err == nil {
-                contractInfo := &common.FungibleAssetContractECDLPTLC {
+                contractInfo := &common.FungibleAssetContractHTLC {
                     ContractId: contractId,
                     Claim: claimInfoVal,
                 }
@@ -525,10 +525,10 @@ func (amc *AssetManagementContract) ClaimAssetUsingContractId(ctx contractapi.Tr
                 contractInfoBytes, err = proto.Marshal(contractInfo)
             }
         } else if claimInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-            claimInfoVal := &common.AssetClaimECDLPTLC{}
+            claimInfoVal := &common.AssetClaimHTLC{}
             err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoVal)
             if err == nil {
-                contractInfo := &common.AssetContractECDLPTLC {
+                contractInfo := &common.AssetContractHTLC {
                     ContractId: contractId,
                     Claim: claimInfoVal,
                 }

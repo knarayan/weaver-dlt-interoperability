@@ -138,12 +138,12 @@ func TestLockAsset(t *testing.T) {
 	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
 	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
 	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
-	lockInfoECDLPTLC := &common.AssetLockECDLPTLC {
+	lockInfoECDLPTLC := &common.AssetLockHTLC {
 		PointPHexaBase64: []byte(pointPHexaBase64),
 		PointQHexaBase64: []byte(pointQHexaBase64),
 		// lock for next 5 minutes
 		ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs,
-		TimeSpec: common.AssetLockECDLPTLC_EPOCH,
+		TimeSpec: common.AssetLockHTLC_EPOCH,
 	}
 	lockInfoECDLPTLCBytes, _ := proto.Marshal(lockInfoECDLPTLC)
 	lockInfo = &common.AssetLock {
@@ -468,7 +468,7 @@ func TestClaimAsset(t *testing.T) {
 
 	ecdlpLock := assetexchange.ECDLPLock{PointPHexaBase64: pointPHexaBase64, PointQHexaBase64: pointQHexaBase64}
 	lockInfoVal = ecdlpLock
-	claimInfoECDLPTLC := &common.AssetClaimECDLPTLC {
+	claimInfoECDLPTLC := &common.AssetClaimHTLC {
 		KHexaBase64: []byte(kHexaBase64),
 	}
 	claimInfoECDLPTLCBytes, _ := proto.Marshal(claimInfoECDLPTLC)
@@ -490,7 +490,7 @@ func TestClaimAsset(t *testing.T) {
 	// Test failure with claim information not containing the correct secret (i.e., value of k in ECDLP lock)
 	kHexa = "234AB5"
 	kHexaBase64 = base64.StdEncoding.EncodeToString([]byte(kHexa))
-	claimInfoECDLPTLC = &common.AssetClaimECDLPTLC {
+	claimInfoECDLPTLC = &common.AssetClaimHTLC {
 		KHexaBase64: []byte(kHexaBase64),
 	}
 	claimInfoECDLPTLCBytes, _ = proto.Marshal(claimInfoECDLPTLC)
@@ -945,12 +945,12 @@ func TestLockFungibleAsset(t *testing.T) {
 	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
 	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
 	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
-	lockInfoECDLPTLC := &common.AssetLockECDLPTLC {
+	lockInfoECDLPTLC := &common.AssetLockHTLC {
 		PointPHexaBase64: []byte(pointPHexaBase64),
 		PointQHexaBase64: []byte(pointQHexaBase64),
 		// lock for next 5 minutes
 		ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs,
-		TimeSpec: common.AssetLockECDLPTLC_EPOCH,
+		TimeSpec: common.AssetLockHTLC_EPOCH,
 	}
 	lockInfoECDLPTLCBytes, _ := proto.Marshal(lockInfoECDLPTLC)
 	lockInfo = &common.AssetLock {
@@ -1150,7 +1150,7 @@ func TestClaimFungibleAsset(t *testing.T) {
 	var lockInfoVal interface{}
 	ecdlpLock := assetexchange.ECDLPLock{PointPHexaBase64: pointPHexaBase64, PointQHexaBase64: pointQHexaBase64}
 	lockInfoVal = ecdlpLock
-	claimInfoECDLPTLC := &common.AssetClaimECDLPTLC {
+	claimInfoECDLPTLC := &common.AssetClaimHTLC {
 		KHexaBase64: []byte(kHexaBase64),
 	}
 	claimInfoECDLPTLCBytes, _ := proto.Marshal(claimInfoECDLPTLC)
@@ -1175,7 +1175,7 @@ func TestClaimFungibleAsset(t *testing.T) {
 	// Test failure with claim information not containing the correct secret (i.e., value of k in ECDLP lock)
 	kHexa = "234AB5"
 	kHexaBase64 = base64.StdEncoding.EncodeToString([]byte(kHexa))
-	claimInfoECDLPTLC = &common.AssetClaimECDLPTLC {
+	claimInfoECDLPTLC = &common.AssetClaimHTLC {
 		KHexaBase64: []byte(kHexaBase64),
 	}
 	claimInfoECDLPTLCBytes, _ = proto.Marshal(claimInfoECDLPTLC)
