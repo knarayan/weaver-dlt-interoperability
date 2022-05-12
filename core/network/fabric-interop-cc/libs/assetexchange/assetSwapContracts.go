@@ -234,7 +234,7 @@ func getLockInfoAndExpiryTimeSecs(lockInfoBytesBase64 string) (interface{}, uint
 		}
 		expiryTimeSecs = lockInfoHTLC.ExpiryTimeSecs
 	} else if lockInfo.LockMechanism == common.LockMechanism_ECDLPTLC {
-		lockInfoECDLPTLC := &common.AssetLockECDLPTLC{}
+		lockInfoECDLPTLC := &common.AssetLockHTLC{}
 		err := proto.Unmarshal(lockInfo.LockInfo, lockInfoECDLPTLC)
 		if err != nil {
 			return lockInfoVal, 0, logThenErrorf("unmarshal error: %s", err)
@@ -243,7 +243,7 @@ func getLockInfoAndExpiryTimeSecs(lockInfoBytesBase64 string) (interface{}, uint
 		log.Infof("lockInfoECDLPTLC: %+v\n", lockInfoECDLPTLC)
 		lockInfoVal = ECDLPLock{PointPHexaBase64: string(lockInfoECDLPTLC.PointPHexaBase64), PointQHexaBase64: string(lockInfoECDLPTLC.PointQHexaBase64)}
 		// process time lock details here
-		if lockInfoECDLPTLC.TimeSpec != common.AssetLockECDLPTLC_EPOCH {
+		if lockInfoECDLPTLC.TimeSpec != common.AssetLockHTLC_EPOCH {
 			return lockInfoVal, 0, logThenErrorf("only EPOCH time is supported at present")
 		}
 		expiryTimeSecs = lockInfoECDLPTLC.ExpiryTimeSecs
@@ -536,7 +536,7 @@ func validateHashPreimage(claimInfo *common.AssetClaim, lockInfo interface{}) (b
 }
 
 func validateECDLPsecret(claimInfo *common.AssetClaim, lockInfo interface{}) (bool, error) {
-	claimInfoECDLPTLC := &common.AssetClaimECDLPTLC{}
+	claimInfoECDLPTLC := &common.AssetClaimHTLC{}
 	err := proto.Unmarshal(claimInfo.ClaimInfo, claimInfoECDLPTLC)
 	if err != nil {
 		return false, logThenErrorf("unmarshal claimInfo.ClaimInfo error: %s", err)
@@ -669,7 +669,7 @@ func ClaimAsset(ctx contractapi.TransactionContextInterface, callerChaincodeID, 
 		}
 
 		// Record parameter K into ledger
-		claimInfoECDLPTLC := &common.AssetClaimECDLPTLC{}
+		claimInfoECDLPTLC := &common.AssetClaimHTLC{}
 		err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoECDLPTLC)
 		if err != nil {
 			return "", logThenErrorf("unmarshal claimInfo.ClaimInfo error: %s", err)
@@ -825,7 +825,7 @@ func ClaimAssetUsingContractId(ctx contractapi.TransactionContextInterface, cont
                 }
 
                 // Record parameter K into ledger
-                claimInfoECDLPTLC := &common.AssetClaimECDLPTLC{}
+                claimInfoECDLPTLC := &common.AssetClaimHTLC{}
                 err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoECDLPTLC)
                 if err != nil {
                         return logThenErrorf("unmarshal claimInfo.ClaimInfo error: %s", err)
@@ -1018,7 +1018,7 @@ func ClaimFungibleAsset(ctx contractapi.TransactionContextInterface, contractId,
                 }
 
                 // Record parameter K into ledger
-                claimInfoECDLPTLC := &common.AssetClaimECDLPTLC{}
+                claimInfoECDLPTLC := &common.AssetClaimHTLC{}
                 err = proto.Unmarshal(claimInfo.ClaimInfo, claimInfoECDLPTLC)
                 if err != nil {
                         return logThenErrorf("unmarshal claimInfo.ClaimInfo error: %s", err)
