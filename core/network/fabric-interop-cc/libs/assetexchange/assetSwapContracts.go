@@ -10,9 +10,9 @@ package assetexchange
 
 import (
 	"crypto/ecdsa"
-        "crypto/elliptic"
-        "encoding/hex"
-        "math/big"
+	"crypto/elliptic"
+	"encoding/hex"
+	"math/big"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
