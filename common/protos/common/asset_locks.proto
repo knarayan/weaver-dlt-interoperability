@@ -7,6 +7,7 @@ option go_package = "github.com/hyperledger-labs/weaver-dlt-interoperability/com
 
 enum LockMechanism {
   HTLC = 0;
+  ECDLPTLC = 1;
 }
 
 message AssetLock {
@@ -31,6 +32,21 @@ message AssetLockHTLC {
 
 message AssetClaimHTLC {
   bytes hashPreimageBase64 = 1;
+}
+
+message AssetLockECDLPTLC {
+  bytes pointPHexaBase64 = 1;
+  bytes pointQHexaBase64 = 2;
+  uint64 expiryTimeSecs = 3;
+  enum TimeSpec {
+    EPOCH = 0;
+    DURATION = 1;
+  }
+  TimeSpec timeSpec = 4;
+}
+
+message AssetClaimECDLPTLC {
+  bytes kHexaBase64 = 1;
 }
 
 message AssetExchangeAgreement {
@@ -59,4 +75,18 @@ message FungibleAssetContractHTLC {
   FungibleAssetExchangeAgreement agreement = 2;
   AssetLockHTLC lock = 3;
   AssetClaimHTLC claim = 4;
+}
+
+message AssetContractECDLPTLC {
+  string contractId = 1;
+  AssetExchangeAgreement agreement = 2;
+  AssetLockECDLPTLC lock = 3;
+  AssetClaimECDLPTLC claim = 4;
+}
+
+message FungibleAssetContractECDLPTLC {
+  string contractId = 1;
+  FungibleAssetExchangeAgreement agreement = 2;
+  AssetLockECDLPTLC lock = 3;
+  AssetClaimECDLPTLC claim = 4;
 }

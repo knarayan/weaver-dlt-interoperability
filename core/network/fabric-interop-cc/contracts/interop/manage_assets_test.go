@@ -9,6 +9,9 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"math/big"
 	"fmt"
 	"testing"
 
@@ -43,6 +46,21 @@ func getTxCreatorECertBase64() string {
 	eCertBase64 := "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNVVENDQWZpZ0F3SUJBZ0lSQU5qaWdnVHRhSERGRmtIaUI3VnhPN013Q2dZSUtvWkl6ajBFQXdJd2N6RUxNQWtHQTFVRUJoTUNWVk14RXpBUkJnTlZCQWdUQ2tOaGJHbG1iM0p1YVdFeEZqQVVCZ05WQkFjVERWTmhiaUJHY21GdVkybHpZMjh4R1RBWEJnTlZCQW9URUc5eVp6RXVaWGhoYlhCc1pTNWpiMjB4SERBYUJnTlZCQU1URTJOaExtOXlaekV1WlhoaGJYQnNaUzVqYjIwd0hoY05NVGt3TkRBeE1EZzBOVEF3V2hjTk1qa3dNekk1TURnME5UQXdXakJ6TVFzd0NRWURWUVFHRXdKVlV6RVRNQkVHQTFVRUNCTUtRMkZzYVdadmNtNXBZVEVXTUJRR0ExVUVCeE1OVTJGdUlFWnlZVzVqYVhOamJ6RVpNQmNHQTFVRUNoTVFiM0puTVM1bGVHRnRjR3hsTG1OdmJURWNNQm9HQTFVRUF4TVRZMkV1YjNKbk1TNWxlR0Z0Y0d4bExtTnZiVEJaTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEEwSUFCT2VlYTRCNlM5ZTlyLzZUWGZFZUFmZ3FrNVdpcHZZaEdveGg1ZEZuK1g0bTN2UXZTQlhuVFdLVzczZVNnS0lzUHc5dExDVytwZW9yVnMxMWdieXdiY0dqYlRCck1BNEdBMVVkRHdFQi93UUVBd0lCcGpBZEJnTlZIU1VFRmpBVUJnZ3JCZ0VGQlFjREFnWUlLd1lCQlFVSEF3RXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QXBCZ05WSFE0RUlnUWcxYzJHZmJTa3hUWkxIM2VzUFd3c2llVkU1QWhZNHNPQjVGOGEvaHM5WjhVd0NnWUlLb1pJemowRUF3SURSd0F3UkFJZ1JkZ1krNW9iMDNqVjJLSzFWdjZiZE5xM2NLWHc0cHhNVXY5MFZOc0tHdTBDSUE4Q0lMa3ZEZWg3NEFCRDB6QUNkbitBTkMyVVQ2Sk5UNnd6VHNLN3BYdUwKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ=="
 
 	return eCertBase64
+}
+
+func getEllipticPointsPandQ(kHexa string) (string, string) {
+        pk := new(ecdsa.PrivateKey)
+        pk.D, _ = new(big.Int).SetString(kHexa, 16)
+
+        PX, PY := elliptic.P256().ScalarBaseMult(pk.D.Bytes())
+        PointPBytes := elliptic.Marshal(elliptic.P256(), PX, PY)
+        PointPHexa := fmt.Sprintf("%x", PointPBytes)
+
+        QX, QY := elliptic.P256().ScalarMult(PX, PY, pk.D.Bytes())
+        PointQBytes := elliptic.Marshal(elliptic.P256(), QX, QY)
+        PointQHexa := fmt.Sprintf("%x", PointQBytes)
+
+        return PointPHexa, PointQHexa
 }
 
 func TestLockAsset(t *testing.T) {
@@ -115,6 +133,30 @@ func TestLockAsset(t *testing.T) {
 	_, err = interopcc.LockAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(lockInfoBytes))
 	require.Error(t, err)
 	log.Info(fmt.Println("Test failed as expected with error:", err))
+
+	kHexa := "A79B32"
+	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
+	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
+	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
+	lockInfoECDLPTLC := &common.AssetLockECDLPTLC {
+		PointPHexaBase64: []byte(pointPHexaBase64),
+		PointQHexaBase64: []byte(pointQHexaBase64),
+		// lock for next 5 minutes
+		ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs,
+		TimeSpec: common.AssetLockECDLPTLC_EPOCH,
+	}
+	lockInfoECDLPTLCBytes, _ := proto.Marshal(lockInfoECDLPTLC)
+	lockInfo = &common.AssetLock {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		LockInfo: lockInfoECDLPTLCBytes,
+	}
+	lockInfoBytes, _ = proto.Marshal(lockInfo)
+	// chaincodeStub.GetStateReturns should return nil to be able to lock the asset
+	chaincodeStub.GetStateReturns(nil, nil)
+	// Test success with asset agreement specified properly (for ECDLP lock)
+	_, err = interopcc.LockAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(lockInfoBytes))
+	require.NoError(t, err)
+	fmt.Println("Test success as expected since the agreement and ECDLP lock information aare speccified properly")
 }
 
 func TestUnlockAsset(t *testing.T) {
@@ -417,6 +459,50 @@ func TestClaimAsset(t *testing.T) {
 	err = interopcc.ClaimAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(claimInfoBytes))
 	require.Error(t, err)
 	log.Info(fmt.Println("Test failed as expected with error:", err))
+
+	kHexa := "A79B32"
+	kHexaBase64 := base64.StdEncoding.EncodeToString([]byte(kHexa))
+	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
+	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
+	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
+
+	ecdlpLock := assetexchange.ECDLPLock{PointPHexaBase64: pointPHexaBase64, PointQHexaBase64: pointQHexaBase64}
+	lockInfoVal = ecdlpLock
+	claimInfoECDLPTLC := &common.AssetClaimECDLPTLC {
+		KHexaBase64: []byte(kHexaBase64),
+	}
+	claimInfoECDLPTLCBytes, _ := proto.Marshal(claimInfoECDLPTLC)
+	claimInfo = &common.AssetClaim {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		ClaimInfo: claimInfoECDLPTLCBytes,
+	}
+	claimInfoBytes, _ = proto.Marshal(claimInfo)
+
+	assetLockVal = assetexchange.AssetLockValue{Locker: locker, Recipient: recipient, LockInfo: lockInfoVal, ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs}
+	assetLockValBytes, _ = json.Marshal(assetLockVal)
+	chaincodeStub.GetStateReturns(assetLockValBytes, nil)
+
+	// Test success with asset agreement specified properly (for ECDLP lock)
+	err = interopcc.ClaimAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(claimInfoBytes))
+	require.NoError(t, err)
+	log.Info(fmt.Println("Test success as expected since the asset agreement and claim information are specified properly (for ECDLP lock)."))
+
+	// Test failure with claim information not containing the correct secret (i.e., value of k in ECDLP lock)
+	kHexa = "234AB5"
+	kHexaBase64 = base64.StdEncoding.EncodeToString([]byte(kHexa))
+	claimInfoECDLPTLC = &common.AssetClaimECDLPTLC {
+		KHexaBase64: []byte(kHexaBase64),
+	}
+	claimInfoECDLPTLCBytes, _ = proto.Marshal(claimInfoECDLPTLC)
+	claimInfo = &common.AssetClaim {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		ClaimInfo: claimInfoECDLPTLCBytes,
+	}
+	claimInfoBytes, _ = proto.Marshal(claimInfo)
+	chaincodeStub.GetStateReturns(assetLockValBytes, nil)
+	err = interopcc.ClaimAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(claimInfoBytes))
+	require.Error(t, err)
+	fmt.Println("Test failure as expected since the claim information is not specified properly (for ECDLP lock).")
 }
 
 func TestUnlockAssetUsingContractId(t *testing.T) {
@@ -854,6 +940,30 @@ func TestLockFungibleAsset(t *testing.T) {
 	_, err = interopcc.LockFungibleAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(lockInfoBytes))
 	require.NoError(t, err)
 	fmt.Println("Test success as expected since the fungible asset agreement is specified properly.")
+
+	kHexa := "A79B32"
+	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
+	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
+	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
+	lockInfoECDLPTLC := &common.AssetLockECDLPTLC {
+		PointPHexaBase64: []byte(pointPHexaBase64),
+		PointQHexaBase64: []byte(pointQHexaBase64),
+		// lock for next 5 minutes
+		ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs,
+		TimeSpec: common.AssetLockECDLPTLC_EPOCH,
+	}
+	lockInfoECDLPTLCBytes, _ := proto.Marshal(lockInfoECDLPTLC)
+	lockInfo = &common.AssetLock {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		LockInfo: lockInfoECDLPTLCBytes,
+	}
+	lockInfoBytes, _ = proto.Marshal(lockInfo)
+	// chaincodeStub.GetStateReturns should return nil to be able to lock the asset
+	chaincodeStub.GetStateReturns(nil, nil)
+	// Test success with asset agreement specified properly (for ECDLP lock)
+	_, err = interopcc.LockFungibleAsset(ctx, base64.StdEncoding.EncodeToString(assetAgreementBytes), base64.StdEncoding.EncodeToString(lockInfoBytes))
+	require.NoError(t, err)
+	fmt.Println("Test success as expected since the agreement and ECDLP lock information are speccified properly")
 }
 
 func TestIsFungibleAssetLocked(t *testing.T) {
@@ -1026,9 +1136,60 @@ func TestClaimFungibleAsset(t *testing.T) {
 
 	// Test failure with asset agreement specified not properly
 	chaincodeStub.GetStateReturnsOnCall(12, []byte(localCCId), nil)
+	chaincodeStub.GetStateReturnsOnCall(13, []byte(localCCId), nil)
 	err = interopcc.ClaimFungibleAsset(ctx, contractId, base64.StdEncoding.EncodeToString(claimInfoBytes))
 	require.Error(t, err)
 	log.Info(fmt.Println("Test failed as expected with error:", err))
+
+	kHexa := "A79B32"
+	kHexaBase64 := base64.StdEncoding.EncodeToString([]byte(kHexa))
+	pointPHexa, pointQHexa := getEllipticPointsPandQ(kHexa)
+	pointPHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointPHexa))
+	pointQHexaBase64 := base64.StdEncoding.EncodeToString([]byte(pointQHexa))
+
+	var lockInfoVal interface{}
+	ecdlpLock := assetexchange.ECDLPLock{PointPHexaBase64: pointPHexaBase64, PointQHexaBase64: pointQHexaBase64}
+	lockInfoVal = ecdlpLock
+	claimInfoECDLPTLC := &common.AssetClaimECDLPTLC {
+		KHexaBase64: []byte(kHexaBase64),
+	}
+	claimInfoECDLPTLCBytes, _ := proto.Marshal(claimInfoECDLPTLC)
+	claimInfo = &common.AssetClaim {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		ClaimInfo: claimInfoECDLPTLCBytes,
+	}
+	claimInfoBytes, _ = proto.Marshal(claimInfo)
+
+	assetLockVal = assetexchange.FungibleAssetLockValue{Type: assetType, NumUnits: numUnits, Locker: locker, Recipient: recipient,
+			LockInfo: lockInfoVal, ExpiryTimeSecs: currentTimeSecs + defaultTimeLockSecs}
+	assetLockValBytes, _ = json.Marshal(assetLockVal)
+	chaincodeStub.GetStateReturnsOnCall(14, []byte(localCCId), nil)
+	chaincodeStub.GetStateReturnsOnCall(15, assetLockValBytes, nil)
+	chaincodeStub.DelStateReturnsOnCall(2, nil)
+
+	// Test success with asset agreement specified properly (for ECDLP lock)
+	err = interopcc.ClaimFungibleAsset(ctx, contractId, base64.StdEncoding.EncodeToString(claimInfoBytes))
+	require.NoError(t, err)
+	log.Info(fmt.Println("Test success as expected since the asset agreement and claim information are specified properly (for ECDLP lock)."))
+
+	// Test failure with claim information not containing the correct secret (i.e., value of k in ECDLP lock)
+	kHexa = "234AB5"
+	kHexaBase64 = base64.StdEncoding.EncodeToString([]byte(kHexa))
+	claimInfoECDLPTLC = &common.AssetClaimECDLPTLC {
+		KHexaBase64: []byte(kHexaBase64),
+	}
+	claimInfoECDLPTLCBytes, _ = proto.Marshal(claimInfoECDLPTLC)
+	claimInfo = &common.AssetClaim {
+		LockMechanism: common.LockMechanism_ECDLPTLC,
+		ClaimInfo: claimInfoECDLPTLCBytes,
+	}
+	claimInfoBytes, _ = proto.Marshal(claimInfo)
+	//chaincodeStub.GetStateReturns(assetLockValBytes, nil)
+	chaincodeStub.GetStateReturnsOnCall(16, []byte(localCCId), nil)
+	chaincodeStub.GetStateReturnsOnCall(17, assetLockValBytes, nil)
+	err = interopcc.ClaimFungibleAsset(ctx, contractId, base64.StdEncoding.EncodeToString(claimInfoBytes))
+	require.Error(t, err)
+	fmt.Println("Test failure as expected since the claim information is not specified properly (for ECDLP lock).")
 }
 
 func TestUnlockFungibleAsset(t *testing.T) {
