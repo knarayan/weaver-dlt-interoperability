@@ -1,3 +1,7 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
 name: Deploy Corda Packages
 
 on:
@@ -8,7 +12,7 @@ on:
       - 'common/protos-java-kt/gradle.properties'
       - 'core/network/corda-interop-app/gradle.properties'
       - 'sdks/corda/gradle.properties'
-      - 'core/drivers/corda-driver/makefile.variables.docker'
+      - 'core/drivers/corda-driver/VERSION'
       
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -41,6 +45,7 @@ jobs:
         
 
   publish-interop-app:
+    if: always()
     needs: publish-protos
     runs-on: ubuntu-latest
     steps:
@@ -71,6 +76,7 @@ jobs:
         working-directory: core/network/corda-interop-app
         
   publish-sdk:
+    if: always()
     needs: [publish-protos, publish-interop-app]
     runs-on: ubuntu-latest
     steps:
@@ -101,7 +107,7 @@ jobs:
         working-directory: sdks/corda
     
   publish-driver:
-    if: github.repository_owner == 'hyperledger-labs'
+    if: ${{ always() && github.repository_owner == 'hyperledger-labs' }}
     needs: [publish-protos, publish-interop-app, publish-sdk]
     runs-on: ubuntu-latest
     steps:
@@ -127,5 +133,7 @@ jobs:
       - name: Build and Push
         run: make push-image
         working-directory: core/drivers/corda-driver
-          
         
+      - name: Push latest tag
+        run: make push-image-latest
+        working-directory: core/drivers/corda-driver

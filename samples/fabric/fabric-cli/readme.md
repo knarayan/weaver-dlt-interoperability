@@ -86,19 +86,19 @@ Then run `docker-compose up -d` to start fabric-cli container.
 Then run `docker exec -it fabric-cli bash`, to open interactive shell for fabric-cli, where regular fabric-cli calls can be made.
 
 Setting env is not required inside docker, as env variables are already declared, so next steps would be:
-* `fabric-cli config set-file $CONFG_PATH`
-* `fabric-cli configure all network1 network2`.
+* `./bin/fabric-cli config set-file $CONFG_PATH`
+* `./bin/fabric-cli configure all network1 network2`.
 
 
 ## Example Invoke
 
 To record a key `test` with the value `teststate` via the `simplestate` contract deployed on the `mychannel` channel in `network1`, run:
 ```
-$ fabric-cli chaincode invoke mychannel simplestate create '["test", "teststate"]'` --local-network=network1
+$ ./bin/fabric-cli chaincode invoke mychannel simplestate create '["test", "teststate"]' --local-network=network1
 ```
 To now query the value of the the `test` key, run:
 ```
-$ fabric-cli chaincode query mychannel simplestate read '["test"]' --local-network=network1
+$ ./bin/fabric-cli chaincode query mychannel simplestate read '["test"]' --local-network=network1
 ```
 
 NOTE: Use the `--help` flag with any command to view examples and usage.
@@ -385,6 +385,32 @@ Below are the steps to exercise asset transfers from `network1` to `network2` us
    ./scripts/getTokenBalance.sh network2 bob
    ```
 
+## Events
+
+* To subscribe for one or more events, generate a JSON file like: [Sample Event Sub JSON](./src/data/event_sub_sample.json), which contains an array of event subscription specifications. The samples provided here assume that the driver of `network1` is subscribing to an event of `network2`. Then run the following command (and note the request id which will be used to unsubscribe or get status):
+    ```
+    ./bin/fabric-cli event subscribe --network=network1 src/data/event_sub_sample.json
+    ```
+* To unsuscribe for one or more events, use the same JSON file as in subscription like: [Sample Event Sub JSON](./src/data/event_sub_sample.json). Then run the following command:
+    ```
+    ./bin/fabric-cli event unsubscribe --network=network1 --request-ids=<colon-separated-list-of-request-ids> src/data/event_sub_sample.json
+    ```
+* To get the status of an event subscription, run the following command:
+    ```
+    ./bin/fabric-cli event get-subscription-status --network=network1 --request-id=<request-id>
+    ```
+* To start the HTTP server to listen to the published events by the destination/importing relay (fetched from the source/exporting network), run the following command:
+    ```
+    ./bin/fabric-cli event receive
+    ```
+  By default, it will start the below endpoint:
+    ```
+    http://localhost:8080/simple-event-callback
+    ```
+* To fetch the statuses of all the events received, run the following command:
+    ```
+    ./bin/fabric-cli event get-all --network=network1 --request-id=<request-id>
+    ```
 
 ## NOTE
 

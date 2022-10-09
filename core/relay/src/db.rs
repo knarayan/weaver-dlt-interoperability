@@ -24,4 +24,18 @@ impl Database {
             bincode::deserialize(&db_value[..]).map_err(|e| Error::BincodeError(e));
         decoded_result
     }
+    pub fn unset<T: DeserializeOwned>(&self, key: String) -> Result<T, Error> {
+        let req_db = open(&self.db_path).unwrap();
+        let db_value = (req_db.get(format!("b{}", key))?)
+            .ok_or_else(|| Error::Simple(format!("No value for key: {}", key)))?;
+        let decoded_result: Result<T, Error> =
+            bincode::deserialize(&db_value[..]).map_err(|e| Error::BincodeError(e));
+        req_db.remove(format!("b{}", key))?;
+        decoded_result
+    }
+    pub fn has_key(&self, key: String) -> Result<bool, Error> {
+        let req_db = open(&self.db_path).unwrap();
+        let result = req_db.contains_key(format!("b{}", key))?;
+        Ok(result)
+    }
 }

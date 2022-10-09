@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const { Level } = require('level')
+import { Level } from 'level';
+import * as path from 'path';
 
 /*
  * Interfaces for all database connectors to be used for event subscriptions 
@@ -27,6 +28,8 @@ interface DBConnector {
     update(key: any, value: any): Promise<boolean>;
     // interface to delete a key from the database
     delete(key: any): Promise<any>;
+    // get iterator
+    filteredRead(keyFilterCallback : (key: any, targetKey: any) => boolean, targetKey: any): Promise<Array<any>>;
     // close the database connection
     close(): Promise<boolean>;
 }
@@ -41,8 +44,11 @@ class LevelDBConnector implements DBConnector {
     constructor(
         dbName: string
     ) {
+        if (!dbName || dbName.length == 0) {
+            dbName = "driverdb";
+        }
         this.DB_NAME = dbName;
-        this.dbHandle = new Level(dbName, { valueEncoding: 'json' });
+        this.dbHandle = new Level(path.join(process.env.DB_PATH ? process.env.DB_PATH : "./driverdbs", dbName), { valueEncoding: 'json' });
     }
 
     async open(
@@ -51,10 +57,14 @@ class LevelDBConnector implements DBConnector {
             await this.dbHandle.open();
         } catch (error: any) {
             console.error(`failed to open database connection with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_DATABASE_NOT_OPEN' && error.cause && error.cause.code == 'LEVEL_LOCKED') {
+                throw new DBLockedError(error.toString());
+            } else {
+                throw new DBNotOpenError(error.toString());
+            }
         }
 
-        return Promise.resolve(true);
+        return true;
     }
 
     async insert(
@@ -65,10 +75,14 @@ class LevelDBConnector implements DBConnector {
             await this.dbHandle.put(key, value);
         } catch (error: any) {
             console.error(`failed to insert key ${JSON.stringify(key)} with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new  DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
         }
 
-        return Promise.resolve(true);
+        return true;
     }
 
     async read(
@@ -80,7 +94,13 @@ class LevelDBConnector implements DBConnector {
             console.debug(`read() got value: ${JSON.stringify(value)}`)
         } catch (error: any) {
             console.error(`failed to read key ${JSON.stringify(key)} with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_NOT_FOUND') {
+                throw new DBKeyNotFoundError(error.toString());
+            } else if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
         }
         
         return value;
@@ -94,7 +114,11 @@ class LevelDBConnector implements DBConnector {
             await this.dbHandle.put(key, value);
         } catch (error: any) {
             console.error(`failed to update key ${JSON.stringify(key)} with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
         }
 
         return true; 
@@ -109,10 +133,36 @@ class LevelDBConnector implements DBConnector {
             await this.dbHandle.del(key);
         } catch (error: any) {
             console.error(`failed to delete key ${JSON.stringify(key)} with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_NOT_FOUND') {
+                throw new DBKeyNotFoundError(error.toString());
+            } else if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
         }
         
         return value;
+    }
+
+    async filteredRead(keyFilterCallback : (key: any, targetKey: any) => boolean, targetKey: any): Promise<Array<any>> {
+        try {
+            let retVal = new Array<any>();
+            for await (const [key1, value1] of this.dbHandle.iterator()) {
+                if (keyFilterCallback(key1, targetKey)) {
+                    retVal.push(value1);
+                }
+            }
+
+            return retVal;
+        } catch (error: any) {
+            console.error(`filteredRead error: ${JSON.stringify(error)}`);
+            if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
+        }
     }
 
     async close(
@@ -121,13 +171,56 @@ class LevelDBConnector implements DBConnector {
             await this.dbHandle.close();
         } catch (error: any) {
             console.error(`failed to close database connection with error: ${JSON.stringify(error)}`);
-            throw new Error(error);
+            if (error.code == 'LEVEL_DATABASE_NOT_OPEN') {
+                throw new DBNotOpenError(error.toString());
+            } else {
+                throw new DBError(error.toString());
+            }
         }
 
-        return Promise.resolve(true);
+        return true;
+    }
+
+    async readKeys(
+    ):Promise<any> {
+        const keys = await this.dbHandle.keys().all();
+        return keys;
+    }
+}
+
+class DBKeyNotFoundError extends Error {
+    constructor(msg: string) {
+        super(`key not found in database: ${msg}`);
+        Object.setPrototypeOf(this, DBKeyNotFoundError.prototype);
+    }
+}
+
+class DBNotOpenError extends Error {
+    constructor(msg: string) {
+        super(`database is not open: ${msg}`);
+        Object.setPrototypeOf(this, DBNotOpenError.prototype);
+    }
+}
+
+class DBLockedError extends Error {
+    constructor(msg: string) {
+        super(`database already in use: ${msg}`);
+        Object.setPrototypeOf(this, DBLockedError.prototype);
+    }
+}
+
+class DBError extends Error {
+    constructor(msg: string) {
+        super(`database error: ${msg}`);
+        Object.setPrototypeOf(this, DBError.prototype);
     }
 }
 
 export {
-    LevelDBConnector
+    DBConnector,
+    LevelDBConnector,
+    DBLockedError,
+    DBKeyNotFoundError,
+    DBNotOpenError,
+    DBError
 }

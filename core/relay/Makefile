@@ -1,9 +1,13 @@
-include Makefile.variables.docker
+DOCKER_IMAGE_NAME ?= weaver-relay
+DOCKER_TAG ?= `cat ./VERSION`
+DOCKER_REGISTRY ?= ghcr.io/hyperledger-labs
+GIT_URL = https://github.com/hyperledger-labs/weaver-dlt-interoperability
 
-PROTOS_TAG ?= v0.7
+PROTOS_TAG ?= v1.4.2
 
 DOCKER_IMAGE_ALL = $(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 DOCKER_IMAGE_SERVER = $(DOCKER_IMAGE_NAME)-server:$(DOCKER_TAG)
+DOCKER_IMAGE_SERVER_LATEST = $(DOCKER_IMAGE_NAME)-server:latest
 DOCKER_IMAGE_CLIENT = $(DOCKER_IMAGE_NAME)-client:$(DOCKER_TAG)
 DOCKER_IMAGE_DRIVER = $(DOCKER_IMAGE_NAME)-driver:$(DOCKER_TAG)
 
@@ -84,6 +88,7 @@ build-local:	protos-local
 build-server-local: protos-local fingerprint.json
 	@echo -e "\033[1mBUILD\033[0m - Building Docker image (relay server)..."
 	docker build  --build-arg COMMIT=$(COMMIT) --build-arg BRANCH=$(BRANCH) --build-arg PROTOS_VERSION=$(PROTOS_TAG) --build-arg VERSION=$(DOCKER_TAG) --build-arg GIT_URL=$(GIT_URL) -t $(DOCKER_IMAGE_SERVER) -f Dockerfile.server .
+	docker tag $(DOCKER_IMAGE_SERVER) $(DOCKER_IMAGE_SERVER_LATEST)
 
 .PHONY: build-client-local
 build-client-local: protos-local fingerprint.json
@@ -105,11 +110,21 @@ build-allinone-local: protos-local fingerprint.json
 .PHONY: build-images-local
 build-images-local: build-allinone-local build-driver-local build-server-local build-client-local
 
+.PHONY: check-if-tag-exists
+check-if-tag-exists:
+	!(DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_SERVER) > /dev/null)
+
 .PHONY: push-server
-push-server: build-server-local
+push-server: check-if-tag-exists build-server-local
 	@echo -e "\033[1mPUSH\033[0m - Pushing Docker image (relay server)..."
 	docker tag $(DOCKER_IMAGE_SERVER) $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_SERVER)
 	docker push $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_SERVER)
+	
+.PHONY: push-server
+push-server-latest:
+	@echo -e "\033[1mPUSH\033[0m - Pushing Docker image Latest tag (relay server)..."
+	docker tag $(DOCKER_IMAGE_SERVER) $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_SERVER_LATEST)
+	docker push $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_SERVER_LATEST)
 
 .PHONY: push-client
 push-client: build-client

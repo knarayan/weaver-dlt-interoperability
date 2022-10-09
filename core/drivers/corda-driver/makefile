@@ -1,4 +1,7 @@
-include makefile.variables.docker
+DOCKER_IMAGE_NAME ?= weaver-corda-driver
+DOCKER_TAG ?= `cat ./VERSION`
+DOCKER_REGISTRY ?= ghcr.io/hyperledger-labs
+GIT_URL = https://github.com/hyperledger-labs/weaver-dlt-interoperability/core/drivers/corda-driver
 
 COMPOSE_ARG ?=
 
@@ -23,15 +26,25 @@ build-refresh-dependencies: github.properties
 .PHONY: image-local
 image-local: build-local
 	docker build -f Dockerfile.local -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) .
+	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(DOCKER_IMAGE_NAME):latest
 
 .PHONY: image
 image: github.properties
 	docker build --build-arg GIT_URL=$(GIT_URL) -f Dockerfile.remote -t $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) .
 
+.PHONY: check-if-tag-exists
+check-if-tag-exists:
+	!(DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG) > /dev/null)
+
 .PHONY: push-image	
-push-image: image
+push-image: check-if-tag-exists image
 	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
 	docker push $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(DOCKER_TAG)
+	
+.PHONY: push-image-latest
+push-image-latest:
+	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_TAG) $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):latest
+	docker push $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):latest
 
 .PHONY: run
 run:

@@ -32,12 +32,33 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
+// CreateAndReturnKey adds a new entry with the specified key and value, and returns the key
+func (s *SmartContract) CreateAndReturnKey(ctx contractapi.TransactionContextInterface, key string, value string) (string, error) {
+	bytes := []byte(value)
+	fmt.Printf("CreateAndReturnKey called. Key: %s Value: %s\n", key, value)
+
+	err := ctx.GetStub().PutState(key, bytes)
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
 // Create adds a new entry with the specified key and value
 func (s *SmartContract) Create(ctx contractapi.TransactionContextInterface, key string, value string) error {
 	bytes := []byte(value)
 	fmt.Printf("Create called. Key: %s Value: %s\n", key, value)
 
-	return ctx.GetStub().PutState(key, bytes)
+	err := ctx.GetStub().PutState(key, bytes)
+	if err != nil {
+		return err
+	} else {
+		err = ctx.GetStub().SetEvent("CreateSimpleState", []byte(key))
+		if err != nil {
+			fmt.Printf("Unable to set 'CreateSimpleState' event: %+v\n", err)
+		}
+	}
+	return nil
 }
 
 // Read returns the value of the entry with the specified key

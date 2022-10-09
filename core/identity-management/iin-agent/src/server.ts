@@ -13,7 +13,7 @@ import 'dotenv/config';
 import { Certificate } from '@fidm/x509';
 import * as path from 'path';
 import { syncExternalStateFromIINAgent, requestIdentityConfiguration, sendIdentityConfiguration } from './protocols/externalOperations';
-import { flowAndRecordAttestationsOnLedger, requestAttestation, sendAttestation } from './protocols/localOperations';
+import { requestAttestation, sendAttestation } from './protocols/localOperations';
 
 
 const iinAgentServer = new Server();
@@ -21,8 +21,8 @@ console.log('iin agent def', JSON.stringify(iin_agent_pb_grpc));
 
 //@ts-ignore
 iinAgentServer.addService(iin_agent_pb_grpc.IINAgentService, {
-    // Service for syncing foreign network unit's state from its IIN agent. Will communicate with the user/agent triggering this process and respond with an ack to the caller while the sync is occurring.
-    syncExternalState: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
+    // Service for syncing foreign security domain unit's state from its IIN agent. Will communicate with the user/agent triggering this process and respond with an ack to the caller while the sync is occurring.
+    syncExternalState: (call: { request: iin_agent_pb.SecurityDomainMemberIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
         const ack_response = new ack_pb.Ack();
         try {
             syncExternalStateFromIINAgent(call.request);
@@ -42,8 +42,8 @@ iinAgentServer.addService(iin_agent_pb_grpc.IINAgentService, {
             callback(null, ack_response);
         }
     },
-    // Service for receiving requests for one's network unit's state from foreign IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being generated.
-    requestIdentityConfiguration: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
+    // Service for receiving requests for one's security domain unit's state from foreign IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being generated.
+    requestIdentityConfiguration: (call: { request: iin_agent_pb.SecurityDomainMemberIdentityRequest }, callback: (_: any, object: ack_pb.Ack) => void) => {
         const ack_response = new ack_pb.Ack();
         try {
             requestIdentityConfiguration(call.request);
@@ -63,8 +63,8 @@ iinAgentServer.addService(iin_agent_pb_grpc.IINAgentService, {
             callback(null, ack_response);
         }
     },
-    // Service for receiving network unit states from foreign IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being processed.
-    sendIdentityConfiguration: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
+    // Service for receiving security domain unit states from foreign IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being processed.
+    sendIdentityConfiguration: (call: { request: iin_agent_pb.AttestedMembership }, callback: (_: any, object: ack_pb.Ack) => void) => {
         const ack_response = new ack_pb.Ack();
         try {
             sendIdentityConfiguration(call.request);
@@ -84,29 +84,8 @@ iinAgentServer.addService(iin_agent_pb_grpc.IINAgentService, {
             callback(null, ack_response);
         }
     },
-    // Service for starting a flow among local IIN agents to collect attestations on a foreign network unit's state. Will communicate with the user/agent triggering this process and respond with an ack to the caller while the flow is occurring.
-    flowAndRecordAttestations: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
-        const ack_response = new ack_pb.Ack();
-        try {
-            flowAndRecordAttestationsOnLedger(call.request);
-            ack_response.setMessage('');
-            ack_response.setStatus(ack_pb.Ack.STATUS.OK);
-            ack_response.setRequestId('');
-            // gRPC response.
-            console.log('Responding to caller');
-            callback(null, ack_response);
-        } catch (e) {
-            console.log(e);
-            ack_response.setMessage(`Error: ${e}`);
-            ack_response.setStatus(ack_pb.Ack.STATUS.ERROR);
-            ack_response.setRequestId('');
-            // gRPC response.
-            console.log('Responding to caller');
-            callback(null, ack_response);
-        }
-    },
-    // Service for receiving requests for attestations on foreign network unit states from local IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being generated.
-    requestAttestation: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
+    // Service for receiving requests for attestations on foreign security domain unit states from local IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being generated.
+    requestAttestation: (call: { request: iin_agent_pb.CounterAttestedMembership }, callback: (_: any, object: ack_pb.Ack) => void) => {
         const ack_response = new ack_pb.Ack();
         try {
             requestAttestation(call.request);
@@ -126,8 +105,8 @@ iinAgentServer.addService(iin_agent_pb_grpc.IINAgentService, {
             callback(null, ack_response);
         }
     },
-    // Service for receiving attestations on foreign network unit states from local IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being processed.
-    sendAttestation: (call: { request: iin_agent_pb.NetworkUnitIdentity }, callback: (_: any, object: ack_pb.Ack) => void) => {
+    // Service for receiving attestations on foreign security domain unit states from local IIN agents. Will communicate with the IIN agent caller and respond with an ack while the attestation is being processed.
+    sendAttestation: (call: { request: iin_agent_pb.CounterAttestedMembership }, callback: (_: any, object: ack_pb.Ack) => void) => {
         const ack_response = new ack_pb.Ack();
         try {
             sendAttestation(call.request);

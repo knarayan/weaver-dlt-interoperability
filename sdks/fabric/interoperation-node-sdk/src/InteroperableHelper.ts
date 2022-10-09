@@ -174,14 +174,14 @@ const getResponseDataFromView = (view, privKeyPEM = null) => {
             const confidentialPayload = interopPayloadPb.ConfidentialPayload.deserializeBinary(Uint8Array.from(Buffer.from(interopPayload.getPayload())));
             const decryptedPayload = decryptData(Buffer.from(confidentialPayload.getEncryptedPayload()), privKeyPEM);
             const decryptedPayloadContents = interopPayloadPb.ConfidentialPayloadContents.deserializeBinary(Uint8Array.from(Buffer.from(decryptedPayload)));
-            return { data: Buffer.from(decryptedPayloadContents.getPayload()).toString(), contents: decryptedPayload };
+            return { interopPayload: interopPayload, data: Buffer.from(decryptedPayloadContents.getPayload()).toString(), contents: decryptedPayload };
         } else {
-            return { data: Buffer.from(interopPayload.getPayload()).toString() };
+            return { interopPayload: interopPayload, data: Buffer.from(interopPayload.getPayload()).toString() };
         }
     } else if (view.getMeta().getProtocol() == statePb.Meta.Protocol.CORDA) {
         const cordaView = cordaViewPb.ViewData.deserializeBinary(view.getData());
         const interopPayload = interopPayloadPb.InteropPayload.deserializeBinary(Uint8Array.from(Buffer.from(cordaView.getPayload())));
-        return { data: Buffer.from(interopPayload.getPayload()).toString() };
+        return { interopPayload: interopPayload, data: Buffer.from(interopPayload.getPayload()).toString() };
     } else {
         const protocolType = view.getMeta().getProtocol();
         throw new Error(`Unsupported DLT type: ${protocolType}`);
@@ -365,6 +365,18 @@ const verifyView = async (contract: Contract, base64ViewProto: string, address: 
 };
 
 /**
+ * Verifies a view's contents and extracts confidential payload by using chaincode function in interop chaincode. Verification is based on verification policy of the network, proof type and protocol type.
+ **/
+const parseAndValidateView = async (contract: Contract, address: string, base64ViewProto: string, b64ViewContent: string): Promise<Buffer> => {
+    try {
+        const viewPayload = await contract.evaluateTransaction("ParseAndValidateView", address, base64ViewProto, b64ViewContent);
+        return viewPayload;
+    } catch (e) {
+        throw new Error(`Unable to parse and validate view: ${e}`);
+    }
+};
+
+/**
  * Creates an address string based on a query object, networkid and remote url.
  **/
 const createAddress = (query: Query, networkID, remoteURL) => {
@@ -397,6 +409,7 @@ const interopFlow = async (
     interopArgIndices: Array<number>,
     interopJSONs: Array<InteropJSON>,
     keyCert: { key: ICryptoKey; cert: any },
+    endorsingOrgs: Array<string> = [],
     returnWithoutLocalInvocation: boolean = false,
     useTls: boolean = false,
     tlsRootCACertPaths?: Array<string>,
@@ -453,6 +466,7 @@ const interopFlow = async (
         computedAddresses,
         viewsSerializedBase64,
         viewContentsBase64,
+        endorsingOrgs
     );
     return { views, result };
 };
@@ -497,6 +511,7 @@ const submitTransactionWithRemoteViews = async (
     viewAddresses: Array<string>,
     viewsSerializedBase64: Array<string>,
     viewContentsBase64: Array<string>,
+    endorsingOrgs: Array<string>
 ): Promise<any> => {
     const ccArgs = getCCArgsForProofVerification(
         invokeObject,
@@ -505,8 +520,13 @@ const submitTransactionWithRemoteViews = async (
         viewsSerializedBase64,
         viewContentsBase64,
     );
+    
+    const tx = interopContract.createTransaction("WriteExternalState")
+    if (endorsingOrgs.length > 0) {
+        tx.setEndorsingOrganizations(...endorsingOrgs)
+    }
     const [result, submitError] = await helpers.handlePromise(
-        interopContract.submitTransaction("WriteExternalState", ...ccArgs),
+        tx.submit(...ccArgs)
     );
     if (submitError) {
         throw new Error(`submitTransaction Error: ${submitError}`);
@@ -652,6 +672,7 @@ export {
     getKeyAndCertForRemoteRequestbyUserName,
     getPolicyCriteriaForAddress,
     verifyView,
+    parseAndValidateView,
     decryptRemoteChaincodeOutput,
     decryptRemoteProposalResponse,
     verifyRemoteProposalResponse,
@@ -669,4 +690,6 @@ export {
     submitTransactionWithRemoteViews,
     getRemoteView,
     createFlowAddress,
+    createAddress,
+    decryptData
 };
